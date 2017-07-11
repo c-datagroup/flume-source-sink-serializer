@@ -21,14 +21,15 @@ package com.adaltas.flume.serialization;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.StringTokenizer;
+import java.io.UnsupportedEncodingException;
+import java.util.*;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import org.apache.flume.Context;
 import org.apache.flume.Event;
 import org.apache.flume.serialization.EventSerializer;
+import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,24 +52,48 @@ public class HeaderAndBodyTextEventSerializer implements EventSerializer {
   private final String FORMAT = "format";
   private final String FORMAT_DFLT = "NATIVE";
   private final String DELIMITER = "delimiter";
-  private final String DELIMITER_DFLT = ",";
+  private final char DELIMITER_DFLT = '\t';
+  private final String JSON_BODY = "jsonBody";
+  private final boolean JSON_BODY_DFLT = false;
 
   private final OutputStream out;
   private CSVWriter csvWriter;
   private final boolean appendNewline;
   private final String columns;
   private final String format;
-  private final String delimiter;
+  private final char delimiter;
+  private final Gson gson;
+  private final boolean jsonBody;
+  private ObjectMapper objectMapper;
   
   private final static Logger logger = LoggerFactory.getLogger(HeaderAndBodyTextEventSerializer.class);
 
   private HeaderAndBodyTextEventSerializer(OutputStream out, Context ctx) {
 	logger.debug("Starting up HeaderAndBodyTextEventSerializer");
     this.appendNewline = ctx.getBoolean(APPEND_NEWLINE, APPEND_NEWLINE_DFLT);
+
     this.columns = ctx.getString(COLUMNS, COLUMNS_DFLT);
+    if(this.columns != null){
+      logger.debug("Serializing event with columns: " + this.columns);
+    }
+
     this.format = ctx.getString(FORMAT, FORMAT_DFLT);
-    this.delimiter = ctx.getString(DELIMITER, DELIMITER_DFLT);
+
+    String strDelimiter = ctx.getString(DELIMITER);
+    if(strDelimiter != null && strDelimiter.length() > 0){
+      this.delimiter = strDelimiter.charAt(0);
+    }
+    else{
+      this.delimiter = DELIMITER_DFLT;
+    }
+
     this.out = out;
+    this.gson = new GsonBuilder().disableHtmlEscaping().create();
+    this.jsonBody = ctx.getBoolean(JSON_BODY, JSON_BODY_DFLT);
+    if(this.jsonBody){
+      this.objectMapper = new ObjectMapper();
+    }
+    logger.debug("JSON Body flag is {}", this.jsonBody);
   }
 
   public boolean supportsReopen() {
@@ -91,19 +116,38 @@ public class HeaderAndBodyTextEventSerializer implements EventSerializer {
     Map<String,String> originalHeaders = e.getHeaders();
     Map<String,String> headers;
 
+    Map<String, String> bodys = new LinkedHashMap<String, String>();
+
     // columns limits which headers are serialized
     if(this.columns != null) {
-      logger.debug("Serializing event with columns: " + this.columns);
+
       headers = new LinkedHashMap<String,String>();
       StringTokenizer tok = new StringTokenizer(this.columns);
 
+      try {
+        bodys = objectMapper.readValue(getBodyString(e), HashMap.class);
+      }
+      catch(Exception exp){
+        logger.error("failed to get JSON from body {}", e.getBody());
+      }
+
       while(tok.hasMoreTokens()){
         String key = tok.nextToken();
-        headers.put(key, originalHeaders.get(key));
+
+        String value = originalHeaders.get(key);
+        if (value == null && this.jsonBody){
+          value = bodys.get(key);
+        }
+
+        headers.put(key, value);
       }
-    } else {
+    }
+    else {
       // If json, we need a copy since we'll add the body
       headers = originalHeaders;
+      if(this.jsonBody){
+        headers.putAll(bodys);
+      }
     }
 
     if(this.format.equals("NATIVE")) {
@@ -127,7 +171,7 @@ public class HeaderAndBodyTextEventSerializer implements EventSerializer {
   protected void handleCsvFormat(Map<String, String>headers, Event event) throws IOException {
     if(csvWriter == null) {
       logger.debug("Creating new csvWriter");
-	  csvWriter = new CSVWriter(new OutputStreamWriter(out), this.delimiter.charAt(0));
+	  csvWriter = new CSVWriter(new OutputStreamWriter(out), this.delimiter);
     }
     
     ArrayList<String> values = new ArrayList<String>();
@@ -138,10 +182,11 @@ public class HeaderAndBodyTextEventSerializer implements EventSerializer {
     		values.add(entry.getValue().toString());
     	}
     }
-    
-    values.add(new String(event.getBody(), "UTF-8"));
-    
-    logger.debug("Writing event with body: " + event.getBody());
+
+    if(!this.jsonBody) {
+      values.add(getBodyString(event));
+      logger.debug("Writing event with body: " + event.getBody());
+    }
 
     csvWriter.writeNext(values.toArray(new String[values.size()]));
     csvWriter.flush();
@@ -149,6 +194,16 @@ public class HeaderAndBodyTextEventSerializer implements EventSerializer {
 
   public void flush() throws IOException {
     // noop
+  }
+
+  private String getBodyString(Event event){
+    try {
+      return new String(event.getBody(), "UTF-8");
+    }
+    catch(UnsupportedEncodingException exp){
+      logger.error("failed to encode the body with UTF-8");
+    }
+    return "";
   }
 
   public static class Builder implements EventSerializer.Builder {

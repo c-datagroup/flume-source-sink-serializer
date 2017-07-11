@@ -76,12 +76,18 @@ public class CustomizedJSONHandler implements HTTPSourceHandler{
     private static final String X_FORWARDED_FOR = "X-Forwarded-For";
     private static final String DATE_TIME = "Date-Time";
     private static final String DATE_TIME_FORMAT = "yyyyMMdd HH:mm:ss";
-    private static final String CID = "uuid_tt_dd";
-    private static final String SID = "dc_session_id";
+    private static final String DEFAULT_CID = "uuid_tt_dd";
+    private static final String DEFAULT_SID = "dc_session_id";
     private static final String DEFAULT_PATH = "/";
     private static final String DEFAULT_DOMAIN = "";
     private static final int SECONDS_PER_YEAR = 60 * 60 * 24 * 365;
     private static final int SECONDS_HALF_HOUR = 60 * 30;
+
+    private String cookieDomain;
+    private String cookiePath;
+    private String headerCookieID;
+    private String headerSessionID;
+    private boolean writeCookie;
 
     public CustomizedJSONHandler(){
         gson = new GsonBuilder().disableHtmlEscaping().create();
@@ -133,6 +139,11 @@ public class CustomizedJSONHandler implements HTTPSourceHandler{
     }
 
     public void configure(Context context) {
+        this.cookieDomain = context.getString(CustomizedHttpSourceConstants.COOKIE_DOMAIN, DEFAULT_DOMAIN);
+        this.cookiePath = context.getString(CustomizedHttpSourceConstants.COOKIE_PATH, DEFAULT_PATH);
+        this.headerCookieID = context.getString(CustomizedHttpSourceConstants.COOKIE_ID, DEFAULT_CID);
+        this.headerSessionID = context.getString(CustomizedHttpSourceConstants.SESSION_ID, DEFAULT_SID);
+        this.writeCookie = context.getBoolean(CustomizedHttpSourceConstants.WRITE_COOKIE, false);
     }
 
     private Map<String, String> getRequestHeaders(HttpServletRequest request, HttpServletResponse response){
@@ -143,8 +154,8 @@ public class CustomizedJSONHandler implements HTTPSourceHandler{
         requestHeaders.put(USER_AGENT, getRequestHeader(request, USER_AGENT, "-"));
         requestHeaders.put(REFERER, getRequestHeader(request, REFERER, "-"));
         requestHeaders.put(X_FORWARDED_FOR, getIPAddress(getRequestHeader(request, X_FORWARDED_FOR)));
-        requestHeaders.put(CID, getCookieID(request, response, datetime));
-        requestHeaders.put(SID, getSessionID(request, response));
+        requestHeaders.put(this.headerCookieID, getCookieID(request, response, datetime));
+        requestHeaders.put(this.headerSessionID, getSessionID(request, response));
         return requestHeaders;
     }
 
@@ -166,17 +177,22 @@ public class CustomizedJSONHandler implements HTTPSourceHandler{
     }
 
     private String getCookieID(HttpServletRequest request, HttpServletResponse response, String currentDateTime){
-        String cid = getCookie(request, CID);
+        String cid = getCookie(request, this.headerCookieID);
         if(isEmpty(cid)){
             cid = UUID.randomUUID().getMostSignificantBits() + "_" + currentDateTime;
-            setCookie(response, ImmutableMap.of("name", CID, "value", cid, "max_age", SECONDS_PER_YEAR,  "path", DEFAULT_PATH, "domain", DEFAULT_DOMAIN));
-            LOG.debug("set the cookie id {} with value {}", CID, cid);
+            if(this.writeCookie) {
+                setCookie(response, ImmutableMap.of("name", this.headerCookieID, "value", cid,
+                        "max_age", SECONDS_PER_YEAR, "path", this.cookiePath, "domain", this.cookieDomain));
+                LOG.debug("set the cookie id {} with value {}", this.headerCookieID, cid);
+            }
         }
         return cid;
     }
 
     private String getSessionID(HttpServletRequest request, HttpServletResponse response){
-        String sid = getCookie(request, SID);
+        String sid = getCookie(request, this.headerSessionID);
+
+        boolean needSetCookie = true;
         if(isEmpty(sid)){
             sid = String.valueOf(new Date().getTime());
         }
@@ -184,9 +200,16 @@ public class CustomizedJSONHandler implements HTTPSourceHandler{
             long nowTimeInMillSeconds = new Date().getTime();
             if (nowTimeInMillSeconds - Long.parseLong(sid) > SECONDS_HALF_HOUR * 1000){
                 sid = String.valueOf(nowTimeInMillSeconds);
-                setCookie(response, ImmutableMap.of("name", SID, "value", sid, "max_age", SECONDS_HALF_HOUR,  "path", DEFAULT_PATH, "domain", DEFAULT_DOMAIN));
-                LOG.debug("set the session id {} with value {}", SID, sid);
             }
+            else{
+                needSetCookie = false;
+            }
+        }
+
+        if(needSetCookie && this.writeCookie) {
+            setCookie(response, ImmutableMap.of("name", this.headerSessionID, "value", sid,
+                    "max_age", SECONDS_HALF_HOUR, "path", this.cookiePath, "domain", this.cookieDomain));
+            LOG.debug("set the session id {} with value {}", this.headerSessionID, sid);
         }
         return sid;
     }
@@ -195,7 +218,7 @@ public class CustomizedJSONHandler implements HTTPSourceHandler{
         Cookie[] cookies = request.getCookies();
         if (cookies != null && cookies.length != 0){
             for(Cookie cookie: cookies){
-                if (cookie.getName().equalsIgnoreCase(cookieName)){
+                if (cookie.getName() != null && cookie.getName().equalsIgnoreCase(cookieName)){
                     return cookie.getValue();
                 }
             }

@@ -101,6 +101,7 @@ public class TestHeaderAndBodyTextEventSerializer {
 	public void testCSV() throws FileNotFoundException, IOException {
 		Context context = new Context();
 		context.put("format", "CSV");
+		context.put("delimiter", ",");
 		serializeWithContext(context, false, 2, null);
 		
 		BufferedReader reader = new BufferedReader(new InputStreamReader(storedOutput));
@@ -116,6 +117,7 @@ public class TestHeaderAndBodyTextEventSerializer {
 		Context context = new Context();
 		context.put("format", "CSV");
 		context.put("columns", "header3 header2");
+		context.put("delimiter", ",");
 		serializeWithContext(context, false, 3, null);
 		
 		BufferedReader reader = new BufferedReader(new InputStreamReader(storedOutput));
@@ -131,6 +133,7 @@ public class TestHeaderAndBodyTextEventSerializer {
 		Context context = new Context();
 		context.put("format", "CSV");
 		context.put("columns", "header3 header2 header75");
+		context.put("delimiter", ",");
 		serializeWithContext(context, false, 3, null);
 		
 		BufferedReader reader = new BufferedReader(new InputStreamReader(storedOutput));

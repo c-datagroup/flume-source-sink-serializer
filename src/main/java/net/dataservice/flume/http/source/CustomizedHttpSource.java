@@ -45,7 +45,7 @@ import java.util.*;
  * the server should bind. Mandatory <p> <tt>handler</tt>: the class that
  * deserializes a HttpServletRequest into a list of flume events. This class
  * must implement HTTPSourceHandler. Default:
- * {@linkplain CustomziedHttpSource}. <p> <tt>handler.*</tt> Any configuration
+ * {@linkplain CustomizedHttpSource}. <p> <tt>handler.*</tt> Any configuration
  * to be passed to the handler. <p>
  *
  * All events deserialized from one Http request are committed to the channel in
@@ -59,7 +59,7 @@ import java.util.*;
  *
  */
 
-public class CustomziedHttpSource extends AbstractSource implements
+public class CustomizedHttpSource extends AbstractSource implements
         EventDrivenSource, Configurable {
   /*
    * There are 2 ways of doing this:
@@ -90,7 +90,7 @@ public class CustomziedHttpSource extends AbstractSource implements
 
     public void configure(Context context) {
         try {
-            LOG.debug("Starting to configure {}", CustomziedHttpSource.class.getName());
+            LOG.debug("Starting to configure {}", CustomizedHttpSource.class.getName());
             // SSL related config
             sslEnabled = context.getBoolean(HTTPSourceConfigurationConstants.SSL_ENABLED, false);
 
@@ -111,7 +111,7 @@ public class CustomziedHttpSource extends AbstractSource implements
                 LOG.debug("SSL configuration enabled");
                 keyStorePath = context.getString(HTTPSourceConfigurationConstants.SSL_KEYSTORE);
                 Preconditions.checkArgument(keyStorePath != null && !keyStorePath.isEmpty(),
-                        "Keystore is required for SSL Conifguration" );
+                        "Keystore is required for SSL Configuration" );
                 keyStorePassword =
                         context.getString(HTTPSourceConfigurationConstants.SSL_KEYSTORE_PASSWORD);
                 Preconditions.checkArgument(keyStorePassword != null,
@@ -165,7 +165,7 @@ public class CustomziedHttpSource extends AbstractSource implements
                 "Running HTTP Server found in source: " + getName()
                         + " before I started one."
                         + "Will not attempt to start.");
-        LOG.debug("Ready to start the CustomziedHttpSource");
+        LOG.debug("Ready to start the CustomizedHttpSource");
         srv = new Server();
 
         // Connector Array
@@ -173,7 +173,7 @@ public class CustomziedHttpSource extends AbstractSource implements
 
 
         if (sslEnabled) {
-            SslSocketConnector sslSocketConnector = new CustomziedHttpSource.HTTPSourceSocketConnector(excludedProtocols);
+            SslSocketConnector sslSocketConnector = new CustomizedHttpSource.HTTPSourceSocketConnector(excludedProtocols);
             sslSocketConnector.setKeystore(keyStorePath);
             sslSocketConnector.setKeyPassword(keyStorePassword);
             sslSocketConnector.setReuseAddress(true);
@@ -190,7 +190,7 @@ public class CustomziedHttpSource extends AbstractSource implements
         try {
             org.mortbay.jetty.servlet.Context root = new org.mortbay.jetty.servlet.Context(
                     srv, "/", org.mortbay.jetty.servlet.Context.SESSIONS);
-            root.addServlet(new ServletHolder(new CustomziedHttpSource.FlumeHTTPServlet()), "/");
+            root.addServlet(new ServletHolder(new CustomizedHttpSource.FlumeHTTPServlet()), "/");
             HTTPServerConstraintUtil.enforceConstraints(root);
             srv.start();
             Preconditions.checkArgument(srv.getHandler().equals(root));

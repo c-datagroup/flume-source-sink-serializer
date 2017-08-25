@@ -76,6 +76,7 @@ public class CustomizedJSONHandler implements HTTPSourceHandler{
     private static final String X_FORWARDED_FOR = "X-Forwarded-For";
     private static final String DATE_TIME = "Date-Time";
     private static final String DATE_TIME_FORMAT = "yyyyMMdd HH:mm:ss";
+    private static final String DATE_FORMAT = "yyyyMMdd";
     private static final String DEFAULT_CID = "uuid_tt_dd";
     private static final String DEFAULT_SID = "dc_session_id";
     private static final String DEFAULT_PATH = "/";
@@ -149,12 +150,13 @@ public class CustomizedJSONHandler implements HTTPSourceHandler{
     private Map<String, String> getRequestHeaders(HttpServletRequest request, HttpServletResponse response){
         Map<String, String> requestHeaders = new HashMap<String, String>();
 
-        String datetime = new DateTime().toString(DATE_TIME_FORMAT);
+        DateTime currentDateTime = new DateTime();
+        String datetime = currentDateTime.toString(DATE_TIME_FORMAT);
         requestHeaders.put(DATE_TIME, datetime);
         requestHeaders.put(USER_AGENT, getRequestHeader(request, USER_AGENT, "-"));
         requestHeaders.put(REFERER, getRequestHeader(request, REFERER, "-"));
         requestHeaders.put(X_FORWARDED_FOR, getIPAddress(getRequestHeader(request, X_FORWARDED_FOR)));
-        requestHeaders.put(this.headerCookieID, getCookieID(request, response, datetime));
+        requestHeaders.put(this.headerCookieID, getCookieID(request, response, currentDateTime.toString(DATE_FORMAT)));
         requestHeaders.put(this.headerSessionID, getSessionID(request, response));
         return requestHeaders;
     }

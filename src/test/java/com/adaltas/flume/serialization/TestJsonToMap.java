@@ -44,4 +44,16 @@ public class TestJsonToMap {
             Assert.assertEquals(false, true);
         }
     }
+
+    @Test
+    public void testSessionIDSplit(){
+        String sid = "1504088201813_0.05337411646061807";
+        int index = sid.indexOf("_");
+        String expectSID = sid.substring(0, index);
+        Assert.assertEquals(expectSID, "1504088201813");
+
+        sid = "1504088201813";
+        index = sid.indexOf("_");
+        Assert.assertEquals(index, -1);
+    }
 }

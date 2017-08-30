@@ -199,12 +199,21 @@ public class CustomizedJSONHandler implements HTTPSourceHandler{
             sid = String.valueOf(new Date().getTime());
         }
         else{
-            long nowTimeInMillSeconds = new Date().getTime();
-            if (nowTimeInMillSeconds - Long.parseLong(sid) > SECONDS_HALF_HOUR * 1000){
-                sid = String.valueOf(nowTimeInMillSeconds);
+            try {
+                long nowTimeInMillSeconds = new Date().getTime();
+                int index = sid.indexOf("_");
+                if(index != -1){
+                    sid = sid.substring(0, index);
+                }
+                if (nowTimeInMillSeconds - Long.parseLong(sid) > SECONDS_HALF_HOUR * 1000) {
+                    sid = String.valueOf(nowTimeInMillSeconds);
+                }
+                else {
+                    needSetCookie = false;
+                }
             }
-            else{
-                needSetCookie = false;
+            catch(Exception exp){
+                LOG.warn("Reset SessionID due to exception in getSessionID with sid = " + sid, exp);
             }
         }
 

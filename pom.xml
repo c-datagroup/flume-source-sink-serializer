@@ -4,7 +4,7 @@
 
   <groupId>adaltas</groupId>
   <artifactId>adaltas-flume-serializer</artifactId>
-  <version>0.1.1-SNAPSHOT</version>
+  <version>0.1.2-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <properties>
@@ -34,6 +34,12 @@
       <groupId>org.apache.flume</groupId>
       <artifactId>flume-ng-core</artifactId>
       <version>${flume.core.version}</version>
+    </dependency>
+    <!-- https://mvnrepository.com/artifact/org.apache.flume.flume-ng-channels/flume-kafka-channel -->
+    <dependency>
+      <groupId>org.apache.flume.flume-ng-channels</groupId>
+      <artifactId>flume-kafka-channel</artifactId>
+      <version>1.7.0</version>
     </dependency>
     <dependency>
       <groupId>net.sf.opencsv</groupId>

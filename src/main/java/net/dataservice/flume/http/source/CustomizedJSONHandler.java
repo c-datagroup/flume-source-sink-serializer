@@ -162,11 +162,15 @@ public class CustomizedJSONHandler implements HTTPSourceHandler{
     }
 
     private String getIPAddress(String xForwardedFor){
-        if (xForwardedFor != null && xForwardedFor.length() > 0) {
-            return xForwardedFor.split(",")[0];
-        } else {
-            return "127.0.0.1";
+        try {
+            if (xForwardedFor != null && xForwardedFor.length() > 0) {
+                return xForwardedFor.split(",")[0];
+            }
         }
+        catch(Exception exp){
+            LOG.error("failed to getIPAddress with: " + xForwardedFor==null ? "null" : xForwardedFor);
+        }
+        return "127.0.0.1";
     }
 
     private String getRequestHeader(HttpServletRequest request, String headerName){
@@ -185,7 +189,7 @@ public class CustomizedJSONHandler implements HTTPSourceHandler{
             if(this.writeCookie) {
                 setCookie(response, ImmutableMap.of("name", this.headerCookieID, "value", cid,
                         "max_age", SECONDS_PER_YEAR, "path", this.cookiePath, "domain", this.cookieDomain));
-                LOG.debug("set the cookie id {} with value {}", this.headerCookieID, cid);
+                LOG.info("set the cookie id {} with value {}", this.headerCookieID, cid);
             }
         }
         return cid;

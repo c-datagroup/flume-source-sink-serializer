@@ -122,24 +122,26 @@ public class HeaderAndBodyTextEventSerializer implements EventSerializer {
     if(this.columns != null) {
 
       headers = new LinkedHashMap<String,String>();
-      StringTokenizer tok = new StringTokenizer(this.columns);
 
       try {
+        StringTokenizer tok = new StringTokenizer(this.columns);
+
         bodys = objectMapper.readValue(getBodyString(e), HashMap.class);
+
+        while(tok.hasMoreTokens()){
+          String key = tok.nextToken();
+
+          String value = originalHeaders.get(key);
+          if (value == null && this.jsonBody){
+            value = bodys.get(key);
+          }
+
+          headers.put(key, value);
+        }
       }
       catch(Exception exp){
-        logger.error("failed to get JSON from body {}", e.getBody());
-      }
-
-      while(tok.hasMoreTokens()){
-        String key = tok.nextToken();
-
-        String value = originalHeaders.get(key);
-        if (value == null && this.jsonBody){
-          value = bodys.get(key);
-        }
-
-        headers.put(key, value);
+        logger.error("failed to get JSON from body {%s}, exception {%s}", e.getBody(), exp.getMessage());
+        throw new IOException(exp.getMessage());
       }
     }
     else {
@@ -198,7 +200,8 @@ public class HeaderAndBodyTextEventSerializer implements EventSerializer {
 
   private String getBodyString(Event event){
     try {
-      return new String(event.getBody(), "UTF-8");
+        logger.debug("body = " + event.getBody().toString());
+        return new String(event.getBody(), "UTF-8");
     }
     catch(UnsupportedEncodingException exp){
       logger.error("failed to encode the body with UTF-8");

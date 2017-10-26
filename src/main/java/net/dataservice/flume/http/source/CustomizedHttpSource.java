@@ -239,7 +239,7 @@ public class CustomizedHttpSource extends AbstractSource implements
                                 + ex.getMessage());
                 return;
             } catch (Exception ex) {
-                LOG.warn("Deserializer threw unexpected exception. ", ex);
+                LOG.warn("Deserializer threw unexpected exception.", ex);
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                         "Deserializer threw unexpected exception. "
                                 + ex.getMessage());

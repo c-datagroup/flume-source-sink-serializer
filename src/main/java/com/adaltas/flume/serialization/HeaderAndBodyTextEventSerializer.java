@@ -38,183 +38,178 @@ import au.com.bytecode.opencsv.CSVWriter;
 /**
  * This class simply writes the header properties and body of the event to the output stream
  * and appends a newline after each event. The "columns" configuration allows
- * to list and order the columns to write. The "format" configuration accept "NATIVE" 
- * and "CSV". In the case of the "CSV" serialization, the fields are space delimited 
+ * to list and order the columns to write. The "format" configuration accept "NATIVE"
+ * and "CSV". In the case of the "CSV" serialization, the fields are space delimited
  * and the implementation is extremely simple without any escaping.
  */
 public class HeaderAndBodyTextEventSerializer implements EventSerializer {
 
-  // for legacy reasons, by default, append a newline to each event written out
-  private final String APPEND_NEWLINE = "appendNewline";
-  private final boolean APPEND_NEWLINE_DFLT = true;
-  private final String COLUMNS = "columns";
-  private final String COLUMNS_DFLT = null;
-  private final String FORMAT = "format";
-  private final String FORMAT_DFLT = "NATIVE";
-  private final String DELIMITER = "delimiter";
-  private final char DELIMITER_DFLT = '\t';
-  private final String JSON_BODY = "jsonBody";
-  private final boolean JSON_BODY_DFLT = false;
+    // for legacy reasons, by default, append a newline to each event written out
+    private final String APPEND_NEWLINE = "appendNewline";
+    private final boolean APPEND_NEWLINE_DFLT = true;
+    private final String COLUMNS = "columns";
+    private final String COLUMNS_DFLT = null;
+    private final String FORMAT = "format";
+    private final String FORMAT_DFLT = "NATIVE";
+    private final String DELIMITER = "delimiter";
+    private final char DELIMITER_DFLT = '\t';
+    private final String JSON_BODY = "jsonBody";
+    private final boolean JSON_BODY_DFLT = false;
 
-  private final OutputStream out;
-  private CSVWriter csvWriter;
-  private final boolean appendNewline;
-  private final String columns;
-  private final String format;
-  private final char delimiter;
-  private final Gson gson;
-  private final boolean jsonBody;
-  private ObjectMapper objectMapper;
-  
-  private final static Logger logger = LoggerFactory.getLogger(HeaderAndBodyTextEventSerializer.class);
+    private final OutputStream out;
+    private CSVWriter csvWriter;
+    private final boolean appendNewline;
+    private final String columns;
+    private final String format;
+    private final char delimiter;
+    private final Gson gson;
+    private final boolean jsonBody;
+    private ObjectMapper objectMapper;
 
-  private HeaderAndBodyTextEventSerializer(OutputStream out, Context ctx) {
-	logger.debug("Starting up HeaderAndBodyTextEventSerializer");
-    this.appendNewline = ctx.getBoolean(APPEND_NEWLINE, APPEND_NEWLINE_DFLT);
+    private final static Logger logger = LoggerFactory.getLogger(HeaderAndBodyTextEventSerializer.class);
 
-    this.columns = ctx.getString(COLUMNS, COLUMNS_DFLT);
-    if(this.columns != null){
-      logger.debug("Serializing event with columns: " + this.columns);
-    }
+    private HeaderAndBodyTextEventSerializer(OutputStream out, Context ctx) {
+        logger.debug("Starting up HeaderAndBodyTextEventSerializer");
+        this.appendNewline = ctx.getBoolean(APPEND_NEWLINE, APPEND_NEWLINE_DFLT);
 
-    this.format = ctx.getString(FORMAT, FORMAT_DFLT);
-
-    String strDelimiter = ctx.getString(DELIMITER);
-    if(strDelimiter != null && strDelimiter.length() > 0){
-      this.delimiter = strDelimiter.charAt(0);
-    }
-    else{
-      this.delimiter = DELIMITER_DFLT;
-    }
-
-    this.out = out;
-    this.gson = new GsonBuilder().disableHtmlEscaping().create();
-    this.jsonBody = ctx.getBoolean(JSON_BODY, JSON_BODY_DFLT);
-    if(this.jsonBody){
-      this.objectMapper = new ObjectMapper();
-    }
-    logger.debug("JSON Body flag is {}", this.jsonBody);
-  }
-
-  public boolean supportsReopen() {
-    return true;
-  }
-
-  public void afterCreate() {
-    // noop
-  }
-
-  public void afterReopen() {
-    // noop
-  }
-
-  public void beforeClose() {
-    // noop
-  }
-
-  public void write(Event e) throws IOException {
-    Map<String,String> originalHeaders = e.getHeaders();
-    Map<String,String> headers;
-
-    Map<String, String> bodys = new LinkedHashMap<String, String>();
-
-    // columns limits which headers are serialized
-    if(this.columns != null) {
-
-      headers = new LinkedHashMap<String,String>();
-
-      try {
-        StringTokenizer tok = new StringTokenizer(this.columns);
-
-        bodys = objectMapper.readValue(getBodyString(e), HashMap.class);
-
-        while(tok.hasMoreTokens()){
-          String key = tok.nextToken();
-
-          String value = originalHeaders.get(key);
-          if (value == null && this.jsonBody){
-            value = bodys.get(key);
-          }
-
-          headers.put(key, value);
+        this.columns = ctx.getString(COLUMNS, COLUMNS_DFLT);
+        if (this.columns != null) {
+            logger.debug("Serializing event with columns: " + this.columns);
         }
-      }
-      catch(Exception exp){
-        logger.error("failed to get JSON from body {%s}, exception {%s}", e.getBody(), exp.getMessage());
-        throw new IOException(exp.getMessage());
-      }
-    }
-    else {
-      // If json, we need a copy since we'll add the body
-      headers = originalHeaders;
-      if(this.jsonBody){
-        headers.putAll(bodys);
-      }
-    }
 
-    if(this.format.equals("NATIVE")) {
-      handleNativeFormat(headers, e);
-    } else if(this.format.equals("CSV")) {
-      handleCsvFormat(headers, e);
-    } else {
-      throw new IOException("Invalid format " + this.format);
-    }
-  }
+        this.format = ctx.getString(FORMAT, FORMAT_DFLT);
 
-  protected void handleNativeFormat(Map<String, String>headers, Event event) throws IOException {
-    out.write((headers + " ").getBytes());
-    out.write(event.getBody());
+        String strDelimiter = ctx.getString(DELIMITER);
+        if (strDelimiter != null && strDelimiter.length() > 0) {
+            this.delimiter = strDelimiter.charAt(0);
+        } else {
+            this.delimiter = DELIMITER_DFLT;
+        }
 
-    if (appendNewline) {
-      out.write('\n');
-    }
-  }
-
-  protected void handleCsvFormat(Map<String, String>headers, Event event) throws IOException {
-    if(csvWriter == null) {
-      logger.debug("Creating new csvWriter");
-	  csvWriter = new CSVWriter(new OutputStreamWriter(out), this.delimiter);
-    }
-    
-    ArrayList<String> values = new ArrayList<String>();
-    for(Map.Entry<String, String> entry : headers.entrySet()) {
-    	if(entry.getValue() == null) {
-    		values.add("");
-    	} else {
-    		values.add(entry.getValue().toString());
-    	}
+        this.out = out;
+        this.gson = new GsonBuilder().disableHtmlEscaping().create();
+        this.jsonBody = ctx.getBoolean(JSON_BODY, JSON_BODY_DFLT);
+        if (this.jsonBody) {
+            this.objectMapper = new ObjectMapper();
+        }
+        logger.debug("JSON Body flag is {}", this.jsonBody);
     }
 
-    if(!this.jsonBody) {
-      values.add(getBodyString(event));
-      logger.debug("Writing event with body: " + event.getBody());
+    public boolean supportsReopen() {
+        return true;
     }
 
-    csvWriter.writeNext(values.toArray(new String[values.size()]));
-    csvWriter.flush();
-  }
-
-  public void flush() throws IOException {
-    // noop
-  }
-
-  private String getBodyString(Event event){
-    try {
-        logger.debug("body = " + event.getBody().toString());
-        return new String(event.getBody(), "UTF-8");
-    }
-    catch(UnsupportedEncodingException exp){
-      logger.error("failed to encode the body with UTF-8");
-    }
-    return "";
-  }
-
-  public static class Builder implements EventSerializer.Builder {
-
-    public EventSerializer build(Context context, OutputStream out) {
-      HeaderAndBodyTextEventSerializer s = new HeaderAndBodyTextEventSerializer(out, context);
-      return s;
+    public void afterCreate() {
+        // noop
     }
 
-  }
+    public void afterReopen() {
+        // noop
+    }
+
+    public void beforeClose() {
+        // noop
+    }
+
+    public void write(Event e) throws IOException {
+        Map<String, String> originalHeaders = e.getHeaders();
+        Map<String, String> headers = new LinkedHashMap<String, String>();
+
+        Map<String, String> bodys = new LinkedHashMap<String, String>();
+
+        // columns limits which headers are serialized
+        if (this.columns != null) {
+
+            try {
+                bodys = objectMapper.readValue(getBodyString(e), HashMap.class);
+
+            } catch (Exception exp) {
+                logger.error("failed to get JSON from body with exception {%s}", exp.getMessage());
+            }
+
+            StringTokenizer tok = new StringTokenizer(this.columns);
+            while (tok.hasMoreTokens()) {
+                String key = tok.nextToken();
+
+                String value = originalHeaders.get(key);
+                if (value == null && this.jsonBody) {
+                    value = bodys.get(key);
+                }
+
+                headers.put(key, value);
+            }
+        } else {
+            // If json, we need a copy since we'll add the body
+            headers.putAll(originalHeaders);
+            if (this.jsonBody) {
+                headers.putAll(bodys);
+            }
+        }
+
+        if (this.format.equals("NATIVE")) {
+            handleNativeFormat(headers, e);
+        } else if (this.format.equals("CSV")) {
+            handleCsvFormat(headers, e);
+        } else {
+            throw new IOException("Invalid format " + this.format);
+        }
+    }
+
+    protected void handleNativeFormat(Map<String, String> headers, Event event) throws IOException {
+        out.write((headers + " ").getBytes());
+        out.write(event.getBody());
+
+        if (appendNewline) {
+            out.write('\n');
+        }
+    }
+
+    protected void handleCsvFormat(Map<String, String> headers, Event event) throws IOException {
+        if (csvWriter == null) {
+            logger.debug("Creating new csvWriter");
+            csvWriter = new CSVWriter(new OutputStreamWriter(out), this.delimiter);
+        }
+
+        ArrayList<String> values = new ArrayList<String>();
+        for (Map.Entry<String, String> entry : headers.entrySet()) {
+            if (entry.getValue() == null) {
+                values.add("");
+            } else {
+                values.add(entry.getValue().toString());
+            }
+        }
+
+        if (!this.jsonBody) {
+            values.add(getBodyString(event));
+            logger.debug("Writing event with body: " + event.getBody());
+        }
+
+        csvWriter.writeNext(values.toArray(new String[values.size()]));
+        csvWriter.flush();
+    }
+
+    public void flush() throws IOException {
+        // noop
+    }
+
+    private String getBodyString(Event event) {
+        try {
+            if (event.getBody() != null) {
+                logger.debug("body = " + event.getBody().toString());
+                return new String(event.getBody(), "UTF-8");
+            }
+        } catch (UnsupportedEncodingException exp) {
+            logger.error("failed to encode the body with UTF-8");
+        }
+        return "";
+    }
+
+    public static class Builder implements EventSerializer.Builder {
+
+        public EventSerializer build(Context context, OutputStream out) {
+            HeaderAndBodyTextEventSerializer s = new HeaderAndBodyTextEventSerializer(out, context);
+            return s;
+        }
+
+    }
 }

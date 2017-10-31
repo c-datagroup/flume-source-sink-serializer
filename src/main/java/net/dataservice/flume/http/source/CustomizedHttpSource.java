@@ -133,10 +133,10 @@ public class CustomizedHttpSource extends AbstractSource implements
             handler = clazz.getDeclaredConstructor().newInstance();
             //ref: http://docs.codehaus.org/display/JETTY/Embedding+Jetty
             //ref: http://jetty.codehaus.org/jetty/jetty-6/apidocs/org/mortbay/jetty/servlet/Context.html
-            Map<String, String> subProps =
-                    context.getSubProperties(
-                            HTTPSourceConfigurationConstants.CONFIG_HANDLER_PREFIX);
-            handler.configure(new Context(subProps));
+            //Map<String, String> subProps =
+            //        context.getSubProperties(
+            //                HTTPSourceConfigurationConstants.CONFIG_HANDLER_PREFIX);
+            handler.configure(context);
         } catch (ClassNotFoundException ex) {
             LOG.error("Error while configuring HTTPSource. Exception follows.", ex);
             Throwables.propagate(ex);

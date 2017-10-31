@@ -9,4 +9,5 @@ public class CustomizedHttpSourceConstants {
     public static final String COOKIE_ID = "cookie.id";
     public static final String SESSION_ID = "session.id";
     public static final String WRITE_COOKIE = "write.cookie";
+    public static final String VALIDATE_HEADERS = "validate.headers";
 }

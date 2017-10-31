@@ -27,6 +27,8 @@ import java.io.BufferedReader;
 import java.lang.reflect.Type;
 import java.nio.charset.UnsupportedCharsetException;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * JSONHandler for HTTPSource that accepts an array of events.
@@ -83,11 +85,14 @@ public class CustomizedJSONHandler implements HTTPSourceHandler{
     private static final String DEFAULT_DOMAIN = "";
     private static final int SECONDS_PER_YEAR = 60 * 60 * 24 * 365;
     private static final int SECONDS_HALF_HOUR = 60 * 30;
+    private Pattern pattern = Pattern.compile("^\\w+$");
+    private String[] headers = null;
 
     private String cookieDomain;
     private String cookiePath;
     private String headerCookieID;
     private String headerSessionID;
+    private String validHeaders;
     private boolean writeCookie;
 
     public CustomizedJSONHandler(){
@@ -145,8 +150,13 @@ public class CustomizedJSONHandler implements HTTPSourceHandler{
         this.headerCookieID = context.getString(CustomizedHttpSourceConstants.COOKIE_ID, DEFAULT_CID);
         this.headerSessionID = context.getString(CustomizedHttpSourceConstants.SESSION_ID, DEFAULT_SID);
         this.writeCookie = context.getBoolean(CustomizedHttpSourceConstants.WRITE_COOKIE, false);
+        this.validHeaders = context.getString(CustomizedHttpSourceConstants.VALIDATE_HEADERS,"");
+        LOG.info("Init VALIDATE_HEADERS:" + validHeaders);
+        if(validHeaders != null && !"".equals(validHeaders)){
+            headers = validHeaders.split(",");
+        }
     }
-
+    
     private Map<String, String> getRequestHeaders(HttpServletRequest request, HttpServletResponse response){
         Map<String, String> requestHeaders = new HashMap<String, String>();
 
@@ -268,9 +278,29 @@ public class CustomizedJSONHandler implements HTTPSourceHandler{
     private List<Event> getSimpleEvents(List<Event> events) {
         List<Event> newEvents = new ArrayList<Event>(events.size());
         for (Event e:events) {
-            newEvents.add(EventBuilder.withBody(e.getBody(), e.getHeaders()));
+            if(validateHeader(e)){
+                newEvents.add(EventBuilder.withBody(e.getBody(), e.getHeaders()));
+            }
         }
         return newEvents;
+    }
+
+    private boolean validateHeader(Event event){
+        if(headers != null){
+            for(String header : headers){
+                String headerValue = event.getHeaders().get(header);
+                if(headerValue == null || "".equals(header.trim())){
+                    LOG.error("Empty Header value for: " + header );
+                    return false;
+                }
+                Matcher m = pattern.matcher(headerValue);
+                if(!m.find()){
+                    LOG.error("Unavailable Header: " + header + "\t" + headerValue);
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     private static boolean isEmpty(String value){

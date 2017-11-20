@@ -131,12 +131,17 @@ public class HeaderAndBodyTextEventSerializer implements EventSerializer {
             while (tok.hasMoreTokens()) {
                 String key = tok.nextToken();
 
-                String value = originalHeaders.get(key);
-                if (value == null && this.jsonBody) {
-                    value = bodys.get(key);
+                try {
+                    String value = originalHeaders.get(key);
+                    if (value == null && this.jsonBody) {
+                        value = bodys.get(key);
+                    }
+                    headers.put(key, value);
+                } catch (Exception expt) {
+                    logger.error("Even Parse ERROR " + "Key: " + key +
+                            " OriginalHeaders: " + mapToString(originalHeaders) +
+                            " Body: " + mapToString(bodys));
                 }
-
-                headers.put(key, value);
             }
         } else {
             // If json, we need a copy since we'll add the body
@@ -153,6 +158,18 @@ public class HeaderAndBodyTextEventSerializer implements EventSerializer {
         } else {
             throw new IOException("Invalid format " + this.format);
         }
+    }
+
+    private String mapToString(Map<String,String> map){
+        if(map == null || map.size() == 0){
+            return "";
+        }
+        Set<Map.Entry<String, String>> entrySet = map.entrySet();
+        StringBuilder stringBuilder = new StringBuilder();
+        for(Map.Entry<String, String> entry: entrySet){
+            stringBuilder.append(entry.getKey()).append("=").append(entry.getValue()).append("\r\n");
+        }
+        return stringBuilder.toString();
     }
 
     protected void handleNativeFormat(Map<String, String> headers, Event event) throws IOException {

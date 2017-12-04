@@ -30,6 +30,7 @@ import org.apache.flume.Context;
 import org.apache.flume.Event;
 import org.apache.flume.serialization.EventSerializer;
 import org.codehaus.jackson.map.ObjectMapper;
+import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -121,10 +122,10 @@ public class HeaderAndBodyTextEventSerializer implements EventSerializer {
         if (this.columns != null) {
 
             try {
-                bodys = objectMapper.readValue(getBodyString(e), HashMap.class);
+                bodys = objectMapper.readValue(getBodyString(e), new TypeReference<Map<String, String>>(){});
 
             } catch (Exception exp) {
-                logger.error("failed to get JSON from body with exception {%s}", exp.getMessage());
+                logger.error("failed to get JSON from body with exception", exp);
             }
 
             StringTokenizer tok = new StringTokenizer(this.columns);
@@ -138,9 +139,7 @@ public class HeaderAndBodyTextEventSerializer implements EventSerializer {
                     }
                     headers.put(key, value);
                 } catch (Exception expt) {
-                    logger.error("Even Parse ERROR " + "Key: " + key +
-                            " OriginalHeaders: " + mapToString(originalHeaders) +
-                            " Body: " + mapToString(bodys));
+                    logger.error("Even Parse ERROR " + "Key: " + key, expt);
                 }
             }
         } else {
@@ -155,21 +154,7 @@ public class HeaderAndBodyTextEventSerializer implements EventSerializer {
             handleNativeFormat(headers, e);
         } else if (this.format.equals("CSV")) {
             handleCsvFormat(headers, e);
-        } else {
-            throw new IOException("Invalid format " + this.format);
         }
-    }
-
-    private String mapToString(Map<String,String> map){
-        if(map == null || map.size() == 0){
-            return "";
-        }
-        Set<Map.Entry<String, String>> entrySet = map.entrySet();
-        StringBuilder stringBuilder = new StringBuilder();
-        for(Map.Entry<String, String> entry: entrySet){
-            stringBuilder.append(entry.getKey()).append("=").append(entry.getValue()).append("\r\n");
-        }
-        return stringBuilder.toString();
     }
 
     protected void handleNativeFormat(Map<String, String> headers, Event event) throws IOException {

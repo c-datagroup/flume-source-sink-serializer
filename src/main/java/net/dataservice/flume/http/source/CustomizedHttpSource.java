@@ -87,6 +87,7 @@ public class CustomizedHttpSource extends AbstractSource implements
     private volatile Boolean sslEnabled;
     private final List<String> excludedProtocols = new LinkedList<String>();
 
+    private static final String RESPONSE_OK = "ok";
 
     public void configure(Context context) {
         try {
@@ -266,6 +267,7 @@ public class CustomizedHttpSource extends AbstractSource implements
             }
             response.setCharacterEncoding(request.getCharacterEncoding());
             response.setStatus(HttpServletResponse.SC_OK);
+            response.getWriter().write(RESPONSE_OK);
             response.flushBuffer();
             sourceCounter.incrementAppendBatchAcceptedCount();
             sourceCounter.addToEventAcceptedCount(events.size());
